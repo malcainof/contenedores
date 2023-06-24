@@ -12,7 +12,7 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
 
-const endpoint = process.env.BILLING_BACKED || 'billing-service.backend:5000';
+const endpoint = process.env.BILLING_BACKED || 'localhost:5000';
 
 const creds = grpc.credentials.createInsecure();
 const service = (protoDescriptor.lab as any).system.billing.BillingService;

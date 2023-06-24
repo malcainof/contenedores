@@ -6,7 +6,12 @@ import (
 	"regexp"
 
 	pb "github.com/malarcon-79/microservices-lab/grpc-protos-go/system/custody"
+	"github.com/malarcon-79/microservices-lab/orm-go/dao"
+	"github.com/malarcon-79/microservices-lab/orm-go/model"
 	"go.uber.org/zap"
+	"github.com/shopspring/decimal"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Controlador de servicio gRPC
@@ -34,7 +39,39 @@ func NewCustodyServiceController() (CustodyServiceController, error) {
 
 func (c *CustodyServiceController) AddCustodyStock(ctx context.Context, msg *pb.CustodyAdd) (*pb.Empty, error) {
 	// Implementar este método
-	return nil, errors.New("no implementado")
+	orm := dao.DB.Model(&model.Custody{})
+	out := new(pb.Empty)
+	if len(msg.Period) ==  0{
+		return nil, errors.New("campo periodo es nulo")
+	}
+	if !c.re.MatchString(msg.Period) {
+		return nil, errors.New("campo periodo invalido")
+	}
+	if len(msg.Stock) ==  0{
+		return nil, errors.New("campo Stock es nulo")
+	}
+	if len(msg.ClientId) ==  0{
+		return nil, errors.New("el id de cliente es nulo")
+	}
+	if msg.Quantity < 0 {
+		return nil, errors.New("la cantidad no debe ser negativa")
+	}
+	custody := &model.Custody{
+		Period:        	msg.Period,
+		ClientId:      	msg.ClientId,
+		Stock: 			msg.Stock,
+		Quantity:   	int32(msg.Quantity),
+		Market:			"",
+		Price:			decimal.NewFromInt(0),
+	}
+
+	if err := orm.Create(custody).Error; err != nil {
+		c.logger.Error("error al ingresar custodia", err)
+		return nil, errors.New("error al guardar")
+	}
+
+	
+	return out, nil
 }
 
 func (c *CustodyServiceController) ClosePeriod(ctx context.Context, msg *pb.CloseFilters) (*pb.Empty, error) {
@@ -42,6 +79,32 @@ func (c *CustodyServiceController) ClosePeriod(ctx context.Context, msg *pb.Clos
 }
 
 func (c *CustodyServiceController) GetCustody(ctx context.Context, msg *pb.CustodyFilter) (*pb.Custodies, error) {
-	// Implementar este método
-	return nil, errors.New("no implementado")
+	orm := dao.DB.Model(&model.Custody{})
+	custodies := []*model.Custody{}
+
+	filter := &model.Custody{
+		Period:        	msg.Period,
+		ClientId:      	msg.ClientId,
+		Stock: 			msg.Stock,
+	}
+
+	if err := orm.Find(&custodies, filter).Error; err != nil {
+		c.logger.Errorf("no se pudo buscar custodia con filtros %v", filter, err)
+		return nil, status.Errorf(codes.Internal, "no se pudo realizar query")
+	}
+
+	result := &pb.Custodies{}
+	for _, item := range custodies {
+		
+		result.Items = append(result.Items, &pb.Custodies_Custody{
+			Period:        	item.Period,
+			Stock:			item.Stock,
+			ClientId:      	item.ClientId,
+			Market:   		item.Market,
+			Price:       	item.Price.InexactFloat64(),
+			Quantity:   	int32(item.Quantity),
+		})
+	}
+
+	return result,nil
 }

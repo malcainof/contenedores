@@ -20,7 +20,7 @@ app.use(express.urlencoded({
 import * as router from './routes/router';
 router.setup('/', app);
 
-const port = process.env.PORT || '3000';
+const port = process.env.PORT || '3003';
 const host = process.env.HOST || '0.0.0.0';
 const server = http.createServer(app).listen(Number(port), host);
 
